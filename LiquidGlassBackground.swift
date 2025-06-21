@@ -50,47 +50,12 @@ public struct LiquidGlassBackground<Content: View>: NSViewRepresentable {
         self.content      = content()
     }
 
-
-    @inline(__always)
-    private func setterSelector(for key: String, privateVariant: Bool = true) -> Selector? {
-        guard !key.isEmpty else { return nil }
-        let name: String
-        if privateVariant {
-            let cleaned = key.hasPrefix("_") ? key : "_" + key
-            name = "set" + cleaned
-        } else {
-            let first = String(key.prefix(1)).uppercased()
-            let rest  = String(key.dropFirst())
-            name = "set" + first + rest
-        }
-        return NSSelectorFromString(name + ":")
-    }
-
-    private typealias VariantSetterIMP = @convention(c) (AnyObject, Selector, Int) -> Void
-
-    private func callPrivateVariantSetter(on object: AnyObject, value: Int) {
-        guard
-            let sel   = setterSelector(for: "variant", privateVariant: true),
-            let m     = class_getInstanceMethod(object_getClass(object), sel)
-        else {
-            #if DEBUG
-            print("✗ LiquidGlassBackground: selector set_variant: not found. falling back to default")
-            #endif
-            return
-        }
-        let imp = method_getImplementation(m)
-        let f   = unsafeBitCast(imp, to: VariantSetterIMP.self)
-        f(object, sel, value)
-    }
-
-
-
     public func makeNSView(context: Context) -> NSView {
         // `NSGlassEffectView` is private. Look it up dynamically to avoid compile‑time coupling.
         if let glassType = NSClassFromString("NSGlassEffectView") as? NSView.Type {
             let glass = glassType.init(frame: .zero)
             glass.setValue(cornerRadius, forKey: "cornerRadius")
-            callPrivateVariantSetter(on: glass, value: variant.rawValue)
+            glass.setValue(variant.rawValue, forKey: "_variant")
 
             let hosting = NSHostingView(rootView: content)
             hosting.translatesAutoresizingMaskIntoConstraints = false
@@ -119,6 +84,6 @@ public struct LiquidGlassBackground<Content: View>: NSViewRepresentable {
             hosting.rootView = content
         }
         nsView.setValue(cornerRadius, forKey: "cornerRadius")
-        callPrivateVariantSetter(on: nsView, value: variant.rawValue)
+        nsView.setValue(variant.rawValue, forKey: "_variant")
     }
 }
